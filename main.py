@@ -15,24 +15,39 @@ def get_article_content(url):
         st.error(e)
         return None
 
-# Funzione per ottenere il sommario usando l'API di Groq
-def summarize_text(text, api_key):
-    # Sostituisci "https://api.tuodominio.com/summarize" con l'endpoint effettivo fornito dall'API Groq.
-    api_url = "https://api.tuodominio.com/summarize"  
-    headers = {"Authorization": f"Bearer {api_key}"}
-    payload = {"text": text}
+# Funzione per ottenere il sommario utilizzando l'API Chat di Groq
+def summarize_text_groq(text, api_key):
+    api_url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    # Costruiamo il messaggio per il sommario
+    user_message = (
+        "Per favore, riassumi il seguente articolo in poche frasi concise:\n\n" + text
+    )
+    payload = {
+        "model": "llama-3.3-70b-versatile",  # Modifica il modello se necessario
+        "messages": [
+            {"role": "user", "content": user_message}
+        ]
+    }
     
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
-        # Debug: visualizza il contenuto della risposta per verificare la struttura
-        st.write("Risposta API (debug):", data)
-        summary = data.get("summary", "Nessun sommario disponibile")
-        return summary
+        # Debug (opzionale): visualizzare la risposta completa per il debug
+        st.write("Risposta API Groq (debug):", data)
+        # Estrarre il sommario dalla risposta
+        choices = data.get("choices", [])
+        if choices and "message" in choices[0]:
+            summary = choices[0]["message"].get("content", "Nessun sommario disponibile")
+            return summary
+        else:
+            return None
     except Exception as e:
         st.error("Errore durante la chiamata all'API per il sommario.")
-        # Se la risposta esiste, stampala per il debug
         if hasattr(e, 'response') and e.response is not None:
             st.error("Dettagli errore API: " + e.response.text)
         st.error(e)
@@ -40,8 +55,7 @@ def summarize_text(text, api_key):
 
 # Iniezione del CSS per lo stile fumetto
 comic_css = """
-/* Inserisci qui il tuo CSS personalizzato */
-/* Esempio: */
+/* Inserisci qui il tuo CSS personalizzato per lo stile fumetto */
 body:has(.comic-container) {
     font-family: 'Comic Neue', cursive;
     background: linear-gradient(135deg, #f0f0f0, #e0f0f0);
@@ -107,15 +121,12 @@ body:has(.comic-container) {
     position: relative;
     z-index: 6;
 }
-
-/* Altri stili CSS per speech bubbles e icone possono essere qui */
 """
 
 st.markdown(f"<style>{comic_css}</style>", unsafe_allow_html=True)
-
 st.title("Articolo in Stile Fumetto con Groq API")
 
-# Recupera la chiave API dai secrets se presente
+# Recupera la chiave API dai secrets, oppure la chiede in input
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
     groq_api_key = st.text_input("Inserisci la tua chiave API per Groq:", type="password")
@@ -131,14 +142,15 @@ if st.button("Processa"):
         with st.spinner("Estrazione dell'articolo in corso..."):
             article_text = get_article_content(link)
         if article_text is not None:
-            with st.spinner("Richiamo API per il sommario..."):
-                summary = summarize_text(article_text, groq_api_key)
+            with st.spinner("Richiamo API Groq per il sommario..."):
+                summary = summarize_text_groq(article_text, groq_api_key)
             if summary:
                 st.markdown("### Sommario")
                 st.write(summary)
-
                 st.markdown("### Articolo in Stile Fumetto")
+                
                 panels_html = ""
+                # Dividi l'articolo in paragrafi non vuoti
                 paragrafi = [p.strip() for p in article_text.split("\n") if p.strip()]
                 for idx, paragrafo in enumerate(paragrafi):
                     panels_html += f"""
