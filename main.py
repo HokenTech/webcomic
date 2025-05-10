@@ -7,24 +7,26 @@ import requests
 from newspaper import Article
 from typing import Optional
 
-# --- Costanti ---
+# --- COSTANTI ---
+# URL e modello per le chiamate all'API Groq
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
-REQUEST_TIMEOUT = 90  # Timeout aumentato per query più lunghe
+REQUEST_TIMEOUT = 90  # Durata massima in secondi per completare una richiesta API
 
-# Titoli di fallback migliorati per i pannelli, se non viene individuato un titolo originale
+# Titoli di fallback in caso di assenza di titolo estratto dal pannello
 DEFAULT_PANEL_TITLES = [
     "Fatto Interessante", "Curiosità Imparabile", "Dato Inedito",
     "Focus Importante", "Un Fattore da Notare", "Riflessione Finale"
 ]
 
+# Icone disponibili per assegnare casualmente ai pannelli del fumetto
 AVAILABLE_ICONS = [
     "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket",
     "icon-map", "icon-blockchain", "icon-gameboy", "icon-machine", "icon-leaf", "icon-team", "icon-cloud"
 ]
 
-# --- CSS per lo stile fumettistico ---
+# Definizione del CSS per lo stile fumettistico dell'applicazione
 COMIC_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap');
 body:has(.comic-container) {
@@ -136,41 +138,42 @@ body:has(.comic-container) {
 }
 """
 
-# --- Funzioni Helper ---
-
+# --- FUNZIONI DI SUPPORTO ---
 def get_article_content(url: str) -> Optional[str]:
     """
-    Estrae il testo principale da un articolo all'URL specificato.
+    Esegue il download e l'analisi di un articolo da un URL fornito.
+    Restituisce il testo principale dell'articolo o None in caso di errore.
     """
     try:
         article = Article(url)
         article.download()
         article.parse()
         if not article.text:
-            st.warning(f"L'articolo all'URL {url} è stato scaricato ma non presenta testo significativo.")
+            st.warning(f"L'articolo all'URL {url} è stato scaricato ma il testo non contiene informazioni significative.")
             return None
         return article.text
     except Exception as e:
-        st.error(f"Errore nell'estrazione dell'articolo da {url}.")
-        st.error(f"Dettagli: {e}")
+        st.error(f"Si è verificato un errore durante l'estrazione dell'articolo da {url}.")
+        st.error(f"Dettagli tecnici: {e}")
         return None
 
 def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
     """
-    Utilizza l'API Groq per trasformare il testo fornito in uno stile fumettistico narrativo.
-    Il testo viene riscritto in maniera semplice, accattivante e informativa.
+    Interroga l'API Groq per trasformare il testo dell'articolo in un formato fumettistico narrativo.
+    Il prompt invia istruzioni per un linguaggio semplice, accattivante, e suddiviso in pannelli tramite doppie interruzioni di riga.
+    La risposta dell'API viene pulita da eventuali formattazioni indesiderate e ritorna il testo trasformato.
     """
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
     prompt = (
-        "Sei un simpatico e abile narratore di fumetti. Riscrivi il seguente articolo in uno stile fumettistico, "
-        "estremamente semplice, accattivante e informativo, come se stessi raccontando una storia a bambini o ragazzi. "
-        "Usa un linguaggio vivace e diretto e dividi il testo in brevi pannelli (paragrafi) separati da una doppia interruzione di riga (\\n\\n). "
-        "Ogni pannello dovrebbe concentrarsi su un'idea o un evento chiave. "
-        "NON includere placeholder, descrizioni di immagini (es. '[Immagine di...]') o metacommenti sul tuo ruolo. "
-        "Inizia direttamente con la narrazione. Ecco il testo dell'articolo:\n\n" + text
+        "Sei un narratore di fumetti con grande abilità. Riscrivi il seguente articolo in uno stile fumettistico, "
+        "semplice, accattivante e informativo, come se venisse raccontato a bambini o ragazzi. "
+        "Utilizza un linguaggio vivace e diretto, e separa il testo in brevi pannelli (paragrafi) usando una doppia interruzione di riga (\\n\\n). "
+        "Ogni pannello deve concentrarsi su un'idea o evento chiave. "
+        "NON includere placeholder, descrizioni di immagini (ad esempio, '[Immagine di...]') o commenti sul ruolo del narratore. "
+        "Di seguito, il testo dell'articolo:\n\n" + text
     )
     payload = {
         "model": GROQ_MODEL_NAME,
@@ -182,7 +185,7 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         data = response.json()
-        # Mantenimento del debug del modello con output dei parametri e risposta API
+        # Visualizzazione dei dati di debug relativi alla risposta API, inclusi i parametri utilizzati e il contenuto restituito
         st.write("Risposta API Groq (debug):", data)
         choices = data.get("choices")
         if choices and isinstance(choices, list) and len(choices) > 0:
@@ -190,15 +193,15 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
             if message and isinstance(message, dict):
                 transformed_text = message.get("content", "")
                 transformed_text = transformed_text.replace("**", "")
-                transformed_text = re.sub(r"$[^$]*$", "", transformed_text)  # Rimuove eventuali placeholders racchiusi in parentesi quadre
-                transformed_text = re.sub(r"\*([^*]+)\*", r"\1", transformed_text)  # Rimuove formattazioni indesiderate in corsivo
+                transformed_text = re.sub(r"$[^$]*$", "", transformed_text)  # Rimozione di eventuali placeholder racchiusi in parentesi quadre
+                transformed_text = re.sub(r"\*([^*]+)\*", r"\1", transformed_text)  # Rimozione di eventuali formattazioni in corsivo
                 return transformed_text.strip()
-        st.warning("L'API Groq ha restituito una risposta inattesa o vuota.")
+        st.warning("La risposta dell'API Groq non è conforme alle aspettative o risulta vuota.")
         st.json(data)
         return None
     except requests.exceptions.HTTPError as http_err:
         st.error("Errore HTTP durante la chiamata all'API Groq.")
-        st.error(f"Status Code: {http_err.response.status_code}")
+        st.error(f"Codice di stato: {http_err.response.status_code}")
         try:
             error_details = http_err.response.json()
             st.error(f"Dettagli errore API: {error_details.get('error', {}).get('message', str(error_details))}")
@@ -206,19 +209,19 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
             st.error(f"Dettagli errore API (testo): {http_err.response.text}")
         return None
     except requests.exceptions.Timeout:
-        st.error(f"Timeout ({REQUEST_TIMEOUT}s) durante la chiamata all'API Groq. L'articolo potrebbe essere troppo lungo o l'API lenta.")
+        st.error(f"Timeout ({REQUEST_TIMEOUT}s) durante la chiamata all'API Groq. L'articolo potrebbe essere troppo lungo o l'API troppo lenta.")
         return None
     except requests.exceptions.RequestException as req_err:
         st.error(f"Errore di connessione durante la chiamata all'API Groq: {req_err}")
         return None
     except Exception as e:
         st.error("Errore imprevisto durante la trasformazione del testo.")
-        st.error(f"Dettagli: {e}")
+        st.error(f"Dettagli tecnici: {e}")
         return None
 
 def generate_panel_html(title: str, content: str, icon_class: str) -> str:
     """
-    Genera l'HTML per un singolo pannello del fumetto.
+    Genera il codice HTML per un pannello del fumetto utilizzando il titolo, il contenuto e un'icona.
     """
     return f"""
     <div class="panel visible">
@@ -232,18 +235,22 @@ def generate_panel_html(title: str, content: str, icon_class: str) -> str:
 
 def display_comic_output(comic_text: str):
     """
-    Suddivide il testo del fumetto in pannelli e genera l'HTML completo per la visualizzazione.
-    Se esiste un titolo originale all'inizio di un pannello, lo usa; altrimenti usa un titolo di default.
-    Pannelli privi di contenuto significativo vengono scartati.
+    Analizza il testo trasformato in pannelli, eliminando quelli che risultano essere vuoti o contenenti solo spazi o caratteri di nuova riga.
+    Genera il codice HTML completo per mostrare il fumetto nell'interfaccia utente.
     """
-    panels_data = [panel.strip() for panel in re.split(r'\n\s*\n', comic_text) if panel.strip()]
+    # Suddivisione del testo in pannelli basata su doppie interruzioni di riga, rimuovendo eventuali pannelli composti solo da spazi o caratteri di nuova riga
+    raw_panels = re.split(r'\n\s*\n', comic_text)
+    panels_data = []
+    for panel in raw_panels:
+        if re.sub(r'[\n\s]', '', panel):  # Verifica che il pannello contenga caratteri significativi
+            panels_data.append(panel.strip())
     if not panels_data:
-        st.warning("Il testo trasformato non contiene pannelli validi (separati da interruzioni di riga doppie). Mostro il testo grezzo.")
+        st.warning("Il testo trasformato non contiene pannelli validi. Verrà mostrato il testo grezzo.")
         panels_data = [comic_text.strip()]
     panels_html_list = []
     for idx, panel_text in enumerate(panels_data):
         lines = panel_text.split("\n", 1)
-        # Se la prima riga è breve, non termina con punteggiatura tipica e c'è del contenuto dopo, usala come titolo
+        # Verifica della presenza di un titolo separato dal contenuto in base alla lunghezza e alla punteggiatura
         if len(lines) > 1:
             potential_title = lines[0].strip()
             content_candidate = lines[1].strip()
@@ -254,10 +261,8 @@ def display_comic_output(comic_text: str):
                 title = random.choice(DEFAULT_PANEL_TITLES)
                 content = panel_text
         else:
-            # Se non c'è una separazione in titolo e contenuto, considero tutto come contenuto
             title = random.choice(DEFAULT_PANEL_TITLES)
             content = panel_text
-        # Salto pannelli che risultano avere contenuto vuoto o solo spazi
         if not content.strip():
             continue
         icon_class = random.choice(AVAILABLE_ICONS)
@@ -296,51 +301,52 @@ def display_comic_output(comic_text: str):
     """
     components.html(full_html, height=1500, scrolling=True)
 
-# --- Interfaccia Streamlit ---
+# --- INTERFACCIA UTENTE STREAMLIT ---
+# Configurazione della pagina con titolo, layout e stato iniziale della sidebar
 st.set_page_config(page_title="Articolo a Fumetti", layout="wide", initial_sidebar_state="collapsed")
 st.title("🎨 Articolo a Fumetti ⚡")
 st.markdown("""
-Trasforma un articolo di notizie in un fumetto narrativo, semplice e divertente! 
-Basta incollare il link e lasciare che la magia (e un po' di AI) faccia il resto.
+Trasforma un articolo di notizie in un fumetto narrativo, semplice e divertente!
+Incollare il link dell'articolo e lasciare che l'intelligenza artificiale faccia il resto.
 """)
 
-# Gestione API Key
+# Gestione della chiave API per Groq attraverso lo stato della sessione
 if 'GROQ_API_KEY' not in st.session_state:
     st.session_state.GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 if not st.session_state.GROQ_API_KEY:
     st.session_state.GROQ_API_KEY = st.text_input(
-        "🔑 Inserisci la tua chiave API Groq:", 
+        "🔑 Inserisci la chiave API Groq:",
         type="password",
-        help="Ottieni una chiave API gratuita da console.groq.com"
+        help="La chiave API può essere ottenuta gratuitamente da console.groq.com"
     )
 
 article_url = st.text_input(
-    "🔗 Inserisci il link dell'articolo da trasformare:", 
+    "🔗 Inserisci il link dell'articolo da trasformare:",
     placeholder="Es. https://www.ansa.it/sito/notizie/..."
 )
 
 if st.button("Trasforma in Fumetto!", type="primary", use_container_width=True, key="transform_button"):
     valid_input = True
     if not article_url:
-        st.error("🤔 Ops! Dimenticato di inserire il link.")
+        st.error("Il link non è stato inserito.")
         valid_input = False
     if not st.session_state.GROQ_API_KEY:
-        st.error("🔑 Inserisci la tua chiave API Groq per continuare.")
+        st.error("La chiave API Groq è obbligatoria per procedere.")
         valid_input = False
     if article_url and not (article_url.startswith("http://") or article_url.startswith("https://")):
-        st.error("🔗 Il link inserito non sembra valido. Assicurati che inizi con http:// o https://")
+        st.error("Il link inserito non sembra valido. Verificare che inizi con http:// o https://")
         valid_input = False
     if valid_input:
         with st.spinner("Recupero l'articolo dal web... 📰"):
             article_text = get_article_content(article_url)
         if article_text:
-            st.info(f"Articolo estratto ({len(article_text)} caratteri). Inizio la trasformazione fumettistica!")
-            with st.spinner("Lavoro con l'AI di Groq... 🗯️ (potrebbe richiedere un po' di tempo)"):
+            st.info(f"Articolo estratto ({len(article_text)} caratteri). Inizio trasformazione in formato fumettistico.")
+            with st.spinner("Esecuzione della trasformazione con l'AI di Groq... 🗯️ (potrebbero essere necessari alcuni istanti)"):
                 comic_text_output = transform_text_narrative(st.session_state.GROQ_API_KEY, article_text)
             if comic_text_output:
-                st.success("🚀 Ecco il tuo articolo a fumetti! Buona lettura!")
+                st.success("Trasformazione completata. Ecco il fumetto generato!")
                 display_comic_output(comic_text_output)
             else:
-                st.error("😭 Qualcosa è andato storto durante la trasformazione. Controlla i messaggi di errore sopra.")
+                st.error("Si è verificato un errore durante la trasformazione. Consultare i messaggi di debug per ulteriori informazioni.")
 st.markdown("---")
-st.markdown("Realizzato con l'aiuto di AI, Streamlit, Newspaper3k e Groq. Font: Comic Neue, Bangers. Icone Emoji.")
+st.markdown("Realizzato con AI, Streamlit, Newspaper3k e Groq. Font utilizzati: Comic Neue, Bangers. Icone: Emoji e simboli.")
