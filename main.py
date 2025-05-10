@@ -12,10 +12,10 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 REQUEST_TIMEOUT = 90  # Timeout aumentato per query più lunghe
 
-# Titoli di fallback per i pannelli, se non viene individuato un titolo originale
+# Titoli di fallback migliorati per i pannelli, se non viene individuato un titolo originale
 DEFAULT_PANEL_TITLES = [
-    "Ehi, guarda un po'!", "Colpo di scena!", "Cosa succede qui?",
-    "Notizia Flash!", "Un momento importante!", "E poi...", "Dritto al punto!"
+    "Fatto Interessante", "Curiosità Imparabile", "Dato Inedito",
+    "Focus Importante", "Un Fattore da Notare", "Riflessione Finale"
 ]
 
 AVAILABLE_ICONS = [
@@ -182,6 +182,8 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         data = response.json()
+        # Mantenimento del debug del modello con output dei parametri e risposta API
+        st.write("Risposta API Groq (debug):", data)
         choices = data.get("choices")
         if choices and isinstance(choices, list) and len(choices) > 0:
             message = choices[0].get("message")
@@ -232,6 +234,7 @@ def display_comic_output(comic_text: str):
     """
     Suddivide il testo del fumetto in pannelli e genera l'HTML completo per la visualizzazione.
     Se esiste un titolo originale all'inizio di un pannello, lo usa; altrimenti usa un titolo di default.
+    Pannelli privi di contenuto significativo vengono scartati.
     """
     panels_data = [panel.strip() for panel in re.split(r'\n\s*\n', comic_text) if panel.strip()]
     if not panels_data:
@@ -240,14 +243,23 @@ def display_comic_output(comic_text: str):
     panels_html_list = []
     for idx, panel_text in enumerate(panels_data):
         lines = panel_text.split("\n", 1)
-        potential_title = lines[0].strip()
         # Se la prima riga è breve, non termina con punteggiatura tipica e c'è del contenuto dopo, usala come titolo
-        if len(lines) > 1 and len(potential_title) < 70 and not potential_title.endswith(('.', '!', '?', ':', ';')) and lines[1].strip():
-            title = potential_title
-            content = lines[1].strip()
+        if len(lines) > 1:
+            potential_title = lines[0].strip()
+            content_candidate = lines[1].strip()
+            if potential_title and content_candidate and len(potential_title) < 70 and not potential_title.endswith(('.', '!', '?', ':', ';')):
+                title = potential_title
+                content = content_candidate
+            else:
+                title = random.choice(DEFAULT_PANEL_TITLES)
+                content = panel_text
         else:
+            # Se non c'è una separazione in titolo e contenuto, considero tutto come contenuto
             title = random.choice(DEFAULT_PANEL_TITLES)
             content = panel_text
+        # Salto pannelli che risultano avere contenuto vuoto o solo spazi
+        if not content.strip():
+            continue
         icon_class = random.choice(AVAILABLE_ICONS)
         panels_html_list.append(generate_panel_html(title, content, icon_class))
     if not panels_html_list:
