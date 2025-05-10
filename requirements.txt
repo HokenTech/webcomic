@@ -1,5 +1,5 @@
 streamlit
 newspaper3k
 requests
-lxml
+lxml==4.9.3
 beautifulsoup4
