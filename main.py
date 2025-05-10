@@ -5,23 +5,20 @@ import streamlit.components.v1 as components
 import requests
 from newspaper import Article
 
-# Funzione per estrarre il contenuto dell'articolo e le immagini da un URL
+# Funzione per estrarre il contenuto dell'articolo da un URL
 def get_article_content(url):
     try:
         article = Article(url)
         article.download()
         article.parse()
-        # Otteniamo il testo e le immagini presenti nell'articolo
-        article_text = article.text
-        # article.images è un set; lo trasformiamo in lista ordinata
-        images = sorted(list(article.images))
-        return {"text": article_text, "images": images}
+        return article.text
     except Exception as e:
-        st.error("Errore durante l'estrazione dell'articolo.")
+        st.error("Errore nell'estrazione dell'articolo.")
         st.error(e)
         return None
 
-# Funzione per trasformare il testo in un fumetto narrativo informativo
+# Funzione per trasformare il testo in un fumetto narrativo informativo,
+# con lo stile di riscrittura aggiornato per mantenere intatta la struttura dei paragrafi.
 def transform_text_narrative(api_key, text):
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -30,10 +27,10 @@ def transform_text_narrative(api_key, text):
     }
     prompt = (
         "Riscrivi il seguente articolo in formato fumettistico, come se un narratore stesse raccontando la storia in maniera "
-        "informativa e coinvolgente, destinata a un pubblico giovane. Mantieni intatta la struttura dei paragrafi originali, "
-        "così che ogni pannello corrisponda a un paragrafo o a gruppi di paragrafi, e inserisci in modo naturale riferimenti "
-        "alle immagini presenti, se utili per la narrazione (es. 'Guarda questa scena', 'L'immagine rivela ...'). "
-        "Non aggiungere un titolo all'inizio di ogni pannello. Testo articolo:\n\n" + text
+        "informativa e coinvolgente, mantenendo la struttura originaria dei paragrafi. L'obiettivo è presentare il testo "
+        "in maniera coerente, senza ridurlo, e rendendolo attraente per un pubblico giovane. Non inserire titoli all'inizio "
+        "dei pannelli, perché verranno assegnati in seguito univocamente. Utilizza un tono narrativo che informi e intrattenga. "
+        "Testo articolo:\n\n" + text
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
@@ -60,7 +57,7 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Lista di titoli evocativi da assegnare in modo univoco ad ogni pannello
+# Lista di titoli evocativi da assegnare in modo univoco a ogni pannello
 default_titles = [
     "Avventura Inizia", "Scoperta Inedita", "Cuore della Narrazione", 
     "Intreccio Emozionante", "Finale Inatteso", "Svolta Cruciale", 
@@ -73,7 +70,7 @@ available_icons = [
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
 ]
 
-# CSS per lo stile fumettistico, con preservazione dei paragrafi originali e formattazione delle immagini
+# CSS per lo stile fumettistico, che preserva la struttura dei paragrafi originali
 comic_css = """
 /* comic-style.css */
 body:has(.comic-container) {
@@ -142,15 +139,6 @@ body:has(.comic-container) {
     z-index: 1;
     text-align: justify;
     white-space: pre-wrap;
-}
-
-.panel img {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 10px auto;
-    border-radius: 8px;
-    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
 }
 
 .panel-content {
@@ -234,7 +222,7 @@ body[style*="display: none"] {
 }
 """
 
-st.title("Comic App: Trasforma l'Articolo in un Fumetto Narrativo con Immagini")
+st.title("Comic App: Trasforma l'Articolo in un Fumetto Narrativo")
 
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
@@ -249,36 +237,28 @@ if st.button("Processa"):
         st.error("Inserisci la tua chiave API per procedere!")
     else:
         with st.spinner("Estrazione dell'articolo in corso..."):
-            article_data = get_article_content(link)
-        if article_data is not None:
-            article_text = article_data.get("text", "")
-            article_images = article_data.get("images", [])
+            article_text = get_article_content(link)
+        if article_text is not None:
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Suddividiamo il testo trasformato in pannelli sfruttando le interruzioni di linea doppie
+                # Suddividiamo il testo trasformato in pannelli mantenendo la struttura dei paragrafi originali
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
                 if not panels:
                     panels = [comic_text]
                 
                 panels_html = ""
                 for idx, panel in enumerate(panels):
-                    # Assegniamo un titolo univoco dalla lista predefinita
+                    # Assegna un titolo univoco dalla lista predefinita
                     title = default_titles[idx % len(default_titles)]
-                    content = panel  # Manteniamo il contenuto con la struttura originale
-                    # Selezioniamo un'icona casuale
+                    content = panel
+                    # Seleziona un'icona casuale per rendere il pannello unico
                     icon_class = random.choice(available_icons)
-                    # Inseriamo un'immagine dal set delle immagini dell'articolo, se disponibile
-                    image_html = ""
-                    if article_images:
-                        image_url = article_images[idx % len(article_images)]
-                        image_html = f'<img src="{image_url}" alt="Immagine articolo">'
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
                             <div class="icon {icon_class}"></div>
                             <h2>{title}</h2>
-                            {image_html}
                             <p>{content}</p>
                         </div>
                     </div>
