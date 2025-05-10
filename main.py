@@ -26,10 +26,10 @@ def transform_text_narrative(api_key, text):
     }
     prompt = (
         "Riscrivi il seguente articolo in formato fumettistico, come se un narratore stesse raccontando la storia in maniera "
-        "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli. Per ciascun pannello "
-        "non includere un titolo all'inizio del paragrafo, perché il titolo verrà assegnato in seguito in modo unico. "
-        "Rendi il testo del pannello completo e coerente. Non inserire numerazioni, simboli o markdown extra. "
-        "Testo articolo:\n\n" + text
+        "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli mantenendo intatta "
+        "la struttura dei paragrafi originali (usa le interruzioni di linea doppie per separare i pannelli). Non inserire un titolo "
+        "all'inizio di ogni pannello, perché verrà assegnato un titolo unico in seguito. "
+        "Non aggiungere numerazioni, simboli o markdown extra. Testo articolo:\n\n" + text
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
@@ -56,7 +56,7 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Definiamo una lista di titoli evocativi da assegnare in modo univoco ad ogni pannello
+# Lista di titoli evocativi da assegnare in modo univoco ad ogni pannello
 default_titles = [
     "Avventura Inizia", "Scoperta Inedita", "Cuore della Narrazione", 
     "Intreccio Emozionante", "Finale Inatteso", "Svolta Cruciale", 
@@ -69,7 +69,7 @@ available_icons = [
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
 ]
 
-# CSS per lo stile fumettistico, senza animazioni aggiuntive
+# CSS per lo stile fumettistico, con mantenimento dei paragrafi originali
 comic_css = """
 /* comic-style.css */
 body:has(.comic-container) {
@@ -137,6 +137,7 @@ body:has(.comic-container) {
     position: relative;
     z-index: 1;
     text-align: justify;
+    white-space: pre-wrap;
 }
 
 .panel-content {
@@ -257,17 +258,17 @@ if st.button("Processa"):
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Suddividiamo il testo trasformato in pannelli basandoci su doppie interruzioni di linea
+                # Utilizza le interruzioni di linea doppie per separare i pannelli, preservando la struttura dei paragrafi originali
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
-                if len(panels) < 5:
-                    panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
+                if not panels:
+                    panels = [comic_text]
                 
                 panels_html = ""
                 for idx, panel in enumerate(panels):
-                    # Assegniamo un titolo univoco da una lista predefinita
+                    # Assegna un titolo univoco tratto dalla lista predefinita
                     title = default_titles[idx % len(default_titles)]
-                    content = panel  # Il contenuto del pannello è l'intero testo
-                    # Selezioniamo un'icona casuale per aumentare la varietà
+                    content = panel  # Il contenuto del pannello mantiene i paragrafi originali
+                    # Seleziona un'icona casuale per rendere il pannello unico
                     icon_class = random.choice(available_icons)
                     panels_html += f"""
                     <div class="panel visible">
