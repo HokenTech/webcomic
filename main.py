@@ -1,4 +1,5 @@
 import os
+import random
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
@@ -20,17 +21,16 @@ def get_article_content(url):
 def transform_text_narrative(api_key, text):
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Content-Type": "application/json", 
+        "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    # Il prompt istruisce l'API a suddividere il testo in pannelli. 
-    # Ogni pannello deve iniziare con un titolo evocativo su una riga a parte seguito dal contenuto, senza numerazioni o markdown extra.
+    # Il prompt istruisce l’API a suddividere il testo in pannelli.
+    # Ogni pannello inizia con un titolo evocativo su una riga a parte seguito dal contenuto.
     user_message = (
-        "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando la storia in maniera "
-        "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli, "
-        "in cui ogni pannello inizia con un titolo evocativo su una riga a parte seguito dal contenuto del pannello. "
-        "Non inserire numerazioni, simboli o markdown extra (non includere '**', ':' o 'Pannello 1:'). "
-        "Testo articolo:\n\n" + text
+        "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando "
+        "la storia in maniera informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo "
+        "in numerosi pannelli, dove ogni pannello inizia con un titolo evocativo su una riga a parte, seguito dal contenuto. "
+        "Non inserire numerazioni, simboli o markdown extra. Testo articolo:\n\n" + text
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
@@ -57,7 +57,7 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Funzione per parsare un pannello in titolo e contenuto 
+# Funzione per parsare un pannello in titolo ed il relativo contenuto
 def parse_panel(panel_text):
     panel_text = panel_text.strip().replace("**", "")
     title = ""
@@ -84,19 +84,13 @@ def parse_panel(panel_text):
             content = ""
     return title, content
 
-# Lista di icone disponibili, con nuove aggiunte
+# Lista di icone disponibili, con nuove aggiunte per una maggiore varietà
 available_icons = [
     "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
 ]
 
-# Lista di frasi evocative da utilizzare nel balloon, per variare il messaggio
-bubble_phrases = [
-    "Interessante!", "Incredibile!", "Wow!", "Emozionante!", "Avvincente!",
-    "Sorprendente!", "Stupefacente!", "Motivante!", "Fresco!", "Dinamico!"
-]
-
-# CSS fornito dall'utente, con modifiche per il posizionamento della speech bubble e nuove icone
+# CSS per lo stile fumettistico, rimosso l'elemento dell'animazione (speech-bubble)
 comic_css = """
 /* comic-style.css */
 body:has(.comic-container) {
@@ -134,14 +128,14 @@ body:has(.comic-container) {
     min-width: 300px;
     box-sizing: border-box;
     opacity: 0;
-    transform: translateY(20px) rotate(0deg);
+    transform: translateY(20px);
     transition: opacity 0.8s ease-out, transform 0.8s ease-out;
     z-index: 0;
 }
 
 .panel.visible {
     opacity: 1;
-    transform: translateY(0) rotate(var(--rotate, 0deg));
+    transform: translateY(0);
 }
 
 .panel h2 {
@@ -153,7 +147,7 @@ body:has(.comic-container) {
     font-size: 2em;
     line-height: 1.1;
     position: relative;
-    z-index: 6;
+    z-index: 1;
     margin-bottom: 10px;
 }
 
@@ -162,47 +156,8 @@ body:has(.comic-container) {
     margin-bottom: 0;
     line-height: 1.5;
     position: relative;
-    z-index: 6;
-}
-
-/* La speech bubble ora viene posizionata in basso a destra per evitare sovrapposizioni */
-.speech-bubble {
-    position: absolute;
-    background-color: #fff;
-    border: 3px solid #333;
-    border-radius: 10px;
-    padding: 8px 12px;
-    max-width: 50%;
-    font-size: 1em;
-    line-height: 1.3;
-    filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.2));
-    animation: bounce 0.5s ease-in-out alternate infinite;
-    z-index: 5;
-    bottom: 10px;
-    right: 20px;
-}
-
-.speech-bubble::after {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    right: 10px;
-    width: 0;
-    height: 0;
-    border-bottom: 15px solid #fff;
-    border-left: 15px solid transparent;
-}
-
-.speech-bubble::before {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    right: 8px;
-    width: 0;
-    height: 0;
-    border-bottom: 17px solid #333;
-    border-left: 17px solid transparent;
-    z-index: -1;
+    z-index: 1;
+    text-align: justify;
 }
 
 .panel-content {
@@ -223,7 +178,7 @@ body:has(.comic-container) {
     font-size: 3em;
     text-align: center;
     position: relative;
-    z-index: 6;
+    z-index: 2;
     flex-shrink: 0;
 }
 
@@ -257,20 +212,10 @@ body:has(.comic-container) {
     font-family: 'Bangers', cursive;
 }
 
-@keyframes bounce {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-5px); }
-}
-
 @media (max-width: 768px) {
     .panel {
         width: 100%;
         min-width: auto;
-    }
-    .speech-bubble {
-         bottom: 10px;
-         right: 10px;
-         max-width: 60%;
     }
     .icon {
          font-size: 2em;
@@ -283,13 +228,6 @@ body:has(.comic-container) {
 @media (max-width: 480px) {
      .panel h2 {
         font-size: 1.5em;
-    }
-    .speech-bubble {
-         font-size: 0.9em;
-         padding: 6px 10px;
-         bottom: 10px;
-         right: 5px;
-         max-width: 75%;
     }
     .icon {
          font-size: 2em;
@@ -347,19 +285,14 @@ if st.button("Processa"):
                 panels_html = ""
                 for idx, panel in enumerate(panels):
                     titolo, contenuto = parse_panel(panel)
-                    # Se il titolo non sembra conforme al contenuto dell'articolo, usalo
-                    # così com'è (non aggiungere numerazioni o extra)
-                    # Scegli un'icona in base all'indice
-                    icon_class = available_icons[idx % len(available_icons)]
-                    # Scegli una frase evocativa in base all'indice (evitando di usare la prima parola del contenuto)
-                    bubble_phrase = bubble_phrases[idx % len(bubble_phrases)]
+                    # Scegli un'icona casuale dalla lista per garantire varietà
+                    icon_class = random.choice(available_icons)
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
                             <div class="icon {icon_class}"></div>
                             <h2 class="comic-header">{titolo}</h2>
                             <p>{contenuto}</p>
-                            <div class="speech-bubble">{bubble_phrase}</div>
                         </div>
                     </div>
                     """
