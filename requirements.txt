@@ -1,3 +1,5 @@
 streamlit
 newspaper3k
 requests
+lxml
+beautifulsoup4
