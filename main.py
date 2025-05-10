@@ -24,18 +24,17 @@ def transform_text_narrative(api_key, text):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    # Il prompt istruisce l’API a suddividere il testo in pannelli.
-    # Ogni pannello inizia con un titolo evocativo su una riga a parte seguito dal contenuto.
-    user_message = (
-        "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando "
-        "la storia in maniera informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo "
-        "in numerosi pannelli, dove ogni pannello inizia con un titolo evocativo su una riga a parte, seguito dal contenuto. "
-        "Non inserire numerazioni, simboli o markdown extra. Testo articolo:\n\n" + text
+    prompt = (
+        "Riscrivi il seguente articolo in formato fumettistico, come se un narratore stesse raccontando la storia in maniera "
+        "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli. Per ciascun pannello "
+        "non includere un titolo all'inizio del paragrafo, perché il titolo verrà assegnato in seguito in modo unico. "
+        "Rendi il testo del pannello completo e coerente. Non inserire numerazioni, simboli o markdown extra. "
+        "Testo articolo:\n\n" + text
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
-            {"role": "user", "content": user_message}
+            {"role": "user", "content": prompt}
         ]
     }
     try:
@@ -57,40 +56,20 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Funzione per parsare un pannello in titolo ed il relativo contenuto
-def parse_panel(panel_text):
-    panel_text = panel_text.strip().replace("**", "")
-    title = ""
-    content = panel_text
-    if "\n" in panel_text:
-        parts = panel_text.split("\n", 1)
-        title_candidate = parts[0].strip()
-        if title_candidate and len(title_candidate.split()) < 10:
-            title = title_candidate
-            content = parts[1].strip()
-    if not title and ":" in panel_text:
-        parts = panel_text.split(":", 1)
-        title_candidate = parts[0].strip()
-        if title_candidate and len(title_candidate.split()) < 10:
-            title = title_candidate
-            content = parts[1].strip()
-    if not title:
-        words = panel_text.split()
-        if len(words) >= 5:
-            title = " ".join(words[:5])
-            content = " ".join(words[5:])
-        else:
-            title = panel_text
-            content = ""
-    return title, content
+# Definiamo una lista di titoli evocativi da assegnare in modo univoco ad ogni pannello
+default_titles = [
+    "Avventura Inizia", "Scoperta Inedita", "Cuore della Narrazione", 
+    "Intreccio Emozionante", "Finale Inatteso", "Svolta Cruciale", 
+    "Momento Rivelatore", "Epilogo Indimenticabile"
+]
 
-# Lista di icone disponibili, con nuove aggiunte per una maggiore varietà
+# Lista di icone disponibili, per una maggiore varietà ad ogni pannello
 available_icons = [
     "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
 ]
 
-# CSS per lo stile fumettistico, rimosso l'elemento dell'animazione (speech-bubble)
+# CSS per lo stile fumettistico, senza animazioni aggiuntive
 comic_css = """
 /* comic-style.css */
 body:has(.comic-container) {
@@ -278,21 +257,24 @@ if st.button("Processa"):
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
+                # Suddividiamo il testo trasformato in pannelli basandoci su doppie interruzioni di linea
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
                 if len(panels) < 5:
                     panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
                 
                 panels_html = ""
                 for idx, panel in enumerate(panels):
-                    titolo, contenuto = parse_panel(panel)
-                    # Scegli un'icona casuale dalla lista per garantire varietà
+                    # Assegniamo un titolo univoco da una lista predefinita
+                    title = default_titles[idx % len(default_titles)]
+                    content = panel  # Il contenuto del pannello è l'intero testo
+                    # Selezioniamo un'icona casuale per aumentare la varietà
                     icon_class = random.choice(available_icons)
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
                             <div class="icon {icon_class}"></div>
-                            <h2 class="comic-header">{titolo}</h2>
-                            <p>{contenuto}</p>
+                            <h2 class="comic-header">{title}</h2>
+                            <p>{content}</p>
                         </div>
                     </div>
                     """
