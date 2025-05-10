@@ -23,16 +23,13 @@ def summarize_text_groq(text, api_key):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    user_message = (
-        "Per favore, riassumi il seguente articolo in poche frasi concise:\n\n" + text
-    )
+    user_message = "Per favore, riassumi il seguente articolo in poche frasi concise:\n\n" + text
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "user", "content": user_message}
         ]
     }
-    
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
@@ -51,59 +48,248 @@ def summarize_text_groq(text, api_key):
         st.error(e)
         return None
 
-# CSS migliorato per il layout in stile fumetto
+# CSS fornito dall'utente per lo stile fumetto
 comic_css = """
-body {
-    background: #f2f2f2;
-    font-family: Arial, sans-serif;
+/* comic-style.css */
+
+/* Aggiungi uno stile base per il body quando il fumetto è visibile */
+body:has(.comic-container) {
+    font-family: 'Comic Neue', cursive;
+    background: linear-gradient(135deg, #f0f0f0, #e0f0f0); /* Sfondo chiaro per il fumetto */
     margin: 0;
-    padding: 0;
-}
-.comic-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
     padding: 20px;
-    max-width: 1200px;
-    margin: 20px auto;
+    color: #333;
+    overflow-x: hidden;
 }
+
+.comic-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    box-sizing: border-box;
+}
+
 .panel {
     background-color: #fff;
-    border: 3px solid #000;
-    border-radius: 10px;
+    border: 5px solid #333;
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
     padding: 20px;
+    border-radius: 10px;
     position: relative;
-    box-shadow: 5px 5px 0 rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
+    overflow: hidden;
+    width: calc(50% - 30px);
+    min-width: 300px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(20px) rotate(0deg);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    z-index: 0;
 }
-.panel:nth-child(odd) {
-    transform: rotate(-2deg);
+
+.panel.visible {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--rotate, 0deg));
 }
-.panel:nth-child(even) {
-    transform: rotate(2deg);
-}
+
 .panel h2 {
     font-family: 'Bangers', cursive;
-    font-size: 1.8em;
-    color: #e53935;
-    margin-top: 0;
+    color: #e53935; /* Red */
     text-align: center;
+    margin-top: 0;
+    text-shadow: 2px 2px #333;
+    font-size: 2em;
+    line-height: 1.1;
+    position: relative;
+    z-index: 6;
+    margin-bottom: 10px;
 }
+
 .panel p {
-    font-size: 1.1em;
+    margin-top: 10px;
+    margin-bottom: 0;
     line-height: 1.5;
-    margin: 10px 0;
+    position: relative;
+    z-index: 6;
 }
-.panel::before {
-    content: "";
+
+.speech-bubble {
     position: absolute;
-    bottom: -20px;
-    left: 20px;
+    background-color: #fff;
+    border: 3px solid #333;
+    border-radius: 10px;
+    padding: 8px 12px;
+    max-width: 50%;
+    font-size: 1em;
+    line-height: 1.3;
+    filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.2));
+    animation: bounce 0.5s ease-in-out alternate infinite;
+    z-index: 5;
+    top: 70px;
+    right: 20px;
+    left: auto;
+    bottom: auto;
+}
+
+.speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: -15px;
+    right: auto;
+    bottom: auto;
     width: 0;
     height: 0;
-    border: 20px solid transparent;
-    border-top-color: #fff;
+    border-top: 15px solid transparent;
+    border-bottom: 15px solid transparent;
+    border-right: 15px solid #fff;
+    border-left: none;
+    filter: drop-shadow(-1px 1px 2px rgba(0,0,0,0.1));
+}
+
+.speech-bubble::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: -18px;
+    right: auto;
+    bottom: auto;
+    width: 0;
+    height: 0;
+    border-top: 17px solid transparent;
+    border-bottom: 17px solid transparent;
+    border-right: 17px solid #333;
+    border-left: none;
     z-index: -1;
+}
+
+.panel-content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0 10px;
+}
+
+/* --- Visuals/Icons in Panels --- */
+.icon {
+    display: block;
+    margin: 10px auto;
+    font-size: 3em;
+    text-align: center;
+    position: relative;
+    z-index: 6;
+    flex-shrink: 0;
+}
+
+.icon-trophy::before { content: '🏆'; }
+.icon-globe::before { content: '🌍'; }
+.icon-map::before { content: '📍'; }
+.icon-blockchain::before { content: '🔗'; }
+.icon-gameboy::before { content: '👾'; }
+.icon-machine::before { content: '📦'; font-size: 2.5em; }
+.icon-leaf::before { content: '🌿'; }
+.icon-star::before { content: '⭐'; }
+.icon-team::before { content: '👨‍💻👩‍💻'; }
+.icon-ai::before { content: '🤖'; }
+.icon-code::before { content: '💻'; }
+.icon-cloud::before { content: '☁️'; }
+
+.highlight {
+    font-weight: bold;
+    color: #1a73e8;
+    font-family: 'Bangers', cursive;
+}
+
+.highlight-red {
+    font-weight: bold;
+    color: #e53935;
+    font-family: 'Bangers', cursive;
+}
+
+@keyframes bounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-5px); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .panel {
+        width: 100%;
+        min-width: auto;
+    }
+    .speech-bubble {
+         top: 60px;
+         right: 10px;
+         max-width: 60%;
+    }
+    .speech-bubble::after, .speech-bubble::before {
+         top: 8px;
+    }
+    .speech-bubble::before {
+         top: 6px;
+    }
+    .icon {
+         font-size: 2em;
+    }
+    body:has(.comic-container) {
+         padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+     .panel h2 {
+        font-size: 1.5em;
+    }
+    .speech-bubble {
+         font-size: 0.9em;
+         padding: 6px 10px;
+         top: 50px;
+         right: 5px;
+         max-width: 75%;
+    }
+    .speech-bubble::after, .speech-bubble::before {
+         top: 6px;
+    }
+    .speech-bubble::before {
+         top: 4px;
+    }
+    .icon {
+         font-size: 2em;
+    }
+    body:has(.comic-container) {
+         padding: 10px;
+    }
+}
+
+.comic-header {
+    text-align: center;
+    margin-bottom: 30px;
+    font-family: 'Bangers', cursive;
+    color: #e53935;
+    text-shadow: 3px 3px #333;
+    font-size: 3em;
+}
+
+@media (max-width: 480px) {
+    .comic-header {
+        font-size: 2em;
+        margin-bottom: 20px;
+    }
+}
+
+/* Stile per il body quando la pagina originale è nascosta */
+body[style*="display: none"] {
+    display: none !important;
 }
 """
 
@@ -131,18 +317,27 @@ if st.button("Processa"):
                 st.markdown("### Sommario")
                 st.write(summary)
                 
-                # Preparazione dei pannelli per il fumetto
+                # Predefinisco una lista di titoli e icone per le sezioni
+                titoli_sezioni = ["Introduzione", "Sviluppo", "Approfondimento", "Conclusione"]
+                icone_classi = ["icon-globe", "icon-ai", "icon-code", "icon-trophy"]
+                
                 panels_html = ""
+                # Divisione dell'articolo in paragrafi non vuoti
                 paragrafi = [p.strip() for p in article_text.split("\n") if p.strip()]
                 for idx, paragrafo in enumerate(paragrafi):
+                    titolo = titoli_sezioni[idx % len(titoli_sezioni)]
+                    icona = icone_classi[idx % len(icone_classi)]
                     panels_html += f"""
-                    <div class="panel">
-                        <h2>Pannello {idx+1}</h2>
-                        <p>{paragrafo}</p>
+                    <div class="panel visible">
+                        <div class="panel-content">
+                            <div class="icon {icona}"></div>
+                            <h2 class="comic-header">{titolo}</h2>
+                            <p>{paragrafo}</p>
+                            <div class="speech-bubble">💬</div>
+                        </div>
                     </div>
                     """
                 
-                # Creazione di una pagina HTML completa con head, stile e body
                 full_html = f"""
                 <!DOCTYPE html>
                 <html>
@@ -160,7 +355,6 @@ if st.button("Processa"):
                 </body>
                 </html>
                 """
-                # Renderizza l'HTML in un iframe
                 components.html(full_html, height=800, scrolling=True)
             else:
                 st.error("Impossibile ottenere il sommario.")
