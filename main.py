@@ -28,7 +28,7 @@ def transform_text_narrative(api_key, text):
     prompt = (
         "Riscrivi il seguente articolo in uno stile fumettistico, semplice ed informativo, adatto a un pubblico giovane. "
         "Il risultato deve essere chiaro, coerente e contenere tutte le informazioni rilevanti dell'articolo. "
-        "NON includere placeholder, descrizioni inutili o riferimenti a immagini (ad esempio, non inserire testi come "
+        "NON includere placeholder, descrizioni inutili o riferimenti a immagini (ad es. non inserire testi come "
         "'[Immagine di ...]'). Mantieni la struttura dei paragrafi originale, separando il testo in blocchi se necessario. "
         "Testo articolo:\n\n" + text
     )
@@ -59,11 +59,10 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Lista di titoli evocativi da assegnare in modo univoco a ogni pannello
+# Lista di titoli predefiniti (utilizzati nel caso non si individui un titolo originale)
 default_titles = [
-    "Avventura Inizia", "Scoperta Inedita", "Cuore della Narrazione", 
-    "Intreccio Emozionante", "Finale Inatteso", "Svolta Cruciale", 
-    "Momento Rivelatore", "Epilogo Indimenticabile"
+    "Titolo Inespressivo", "Sottotitolo Mancante", "Approfondimento",
+    "Scoperta Importante", "Punto Chiave", "Riflessione Finale"
 ]
 
 # Lista di icone per aggiungere varietà visiva
@@ -190,14 +189,20 @@ if st.button("Processa"):
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Utilizza interruzioni doppie di linea per mantenere i paragrafi originali
+                # Suddivide il testo trasformato in pannelli utilizzando interruzioni doppie di linea
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
                 if not panels:
                     panels = [comic_text]
                 panels_html = ""
                 for idx, panel in enumerate(panels):
-                    title = default_titles[idx % len(default_titles)]
-                    content = panel
+                    # Prova a utilizzare il titolo originale del paragrafo (se esiste)
+                    lines = panel.split("\n")
+                    if len(lines) > 1 and len(lines[0].strip()) <= 50:
+                        title = lines[0].strip()
+                        content = "\n".join(lines[1:]).strip()
+                    else:
+                        title = default_titles[idx % len(default_titles)]
+                        content = panel
                     icon_class = random.choice(available_icons)
                     panels_html += f"""
                     <div class="panel visible">
