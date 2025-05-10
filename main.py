@@ -53,80 +53,77 @@ def summarize_text_groq(text, api_key):
         st.error(e)
         return None
 
-# Iniezione del CSS per lo stile fumetto
+# CSS migliorato per il layout in stile fumetto
 comic_css = """
-/* Inserisci qui il tuo CSS personalizzato per lo stile fumetto */
-body:has(.comic-container) {
-    font-family: 'Comic Neue', cursive;
-    background: linear-gradient(135deg, #f0f0f0, #e0f0f0);
+/* Stile di base per il corpo */
+body {
+    background: #f2f2f2;
+    font-family: Arial, sans-serif;
     margin: 0;
-    padding: 20px;
-    color: #333;
-    overflow-x: hidden;
+    padding: 0;
 }
 
+/* Contenitore fumetto con layout a griglia responsiva */
 .comic-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 30px;
-    justify-content: center;
-    max-width: 1200px;
-    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
     padding: 20px;
-    background-color: #fff;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    border-radius: 15px;
-    box-sizing: border-box;
+    max-width: 1200px;
+    margin: 20px auto;
 }
 
+/* Stile dei pannelli del fumetto */
 .panel {
     background-color: #fff;
-    border: 5px solid #333;
-    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
-    padding: 20px;
+    border: 3px solid #000;
     border-radius: 10px;
+    padding: 20px;
     position: relative;
-    overflow: hidden;
-    width: calc(50% - 30px);
-    min-width: 300px;
-    box-sizing: border-box;
-    opacity: 0;
-    transform: translateY(20px) rotate(0deg);
-    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
-    z-index: 0;
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
 }
 
-.panel.visible {
-    opacity: 1;
-    transform: translateY(0) rotate(var(--rotate, 0deg));
+/* Effetto alternato di rotazione per i pannelli */
+.panel:nth-child(odd) {
+    transform: rotate(-2deg);
+}
+.panel:nth-child(even) {
+    transform: rotate(2deg);
 }
 
+/* Titolo e paragrafo del pannello */
 .panel h2 {
     font-family: 'Bangers', cursive;
+    font-size: 1.8em;
     color: #e53935;
-    text-align: center;
     margin-top: 0;
-    text-shadow: 2px 2px #333;
-    font-size: 2em;
-    line-height: 1.1;
-    position: relative;
-    z-index: 6;
-    margin-bottom: 10px;
+    text-align: center;
+}
+.panel p {
+    font-size: 1.1em;
+    line-height: 1.5;
+    margin: 10px 0;
 }
 
-.panel p {
-    margin-top: 10px;
-    margin-bottom: 0;
-    line-height: 1.5;
-    position: relative;
-    z-index: 6;
+/* Aggiunta di una pseudo-bubble per dare effetto fumetto */
+.panel::before {
+    content: "";
+    position: absolute;
+    bottom: -20px;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border: 20px solid transparent;
+    border-top-color: #fff;
+    z-index: -1;
 }
 """
 
 st.markdown(f"<style>{comic_css}</style>", unsafe_allow_html=True)
 st.title("Articolo in Stile Fumetto con Groq API")
 
-# Recupera la chiave API dai secrets, oppure la chiede in input
+# Recupera la chiave API dai secrets o la chiede in input
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
     groq_api_key = st.text_input("Inserisci la tua chiave API per Groq:", type="password")
@@ -150,15 +147,13 @@ if st.button("Processa"):
                 st.markdown("### Articolo in Stile Fumetto")
                 
                 panels_html = ""
-                # Dividi l'articolo in paragrafi non vuoti
+                # Divide l'articolo in paragrafi non vuoti e li incapsula nei pannelli
                 paragrafi = [p.strip() for p in article_text.split("\n") if p.strip()]
                 for idx, paragrafo in enumerate(paragrafi):
                     panels_html += f"""
-                    <div class="panel visible" style="--rotate: {(-5 + (idx % 3) * 5)}deg;">
-                        <div class="panel-content">
-                            <h2 class="comic-header">Pannello {idx+1}</h2>
-                            <p>{paragrafo}</p>
-                        </div>
+                    <div class="panel">
+                        <h2>Pannello {idx+1}</h2>
+                        <p>{paragrafo}</p>
                     </div>
                     """
                 comic_html = f"""
