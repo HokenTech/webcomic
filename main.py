@@ -23,14 +23,13 @@ def transform_text_narrative(api_key, text):
         "Content-Type": "application/json", 
         "Authorization": f"Bearer {api_key}"
     }
-    # Messaggio per trasformare il testo in uno stile fumettistico narrativo, informativo e coinvolgente.
-    # Il testo trasformato deve essere suddiviso in pannelli in cui ciascun pannello contiene in prima linea
-    # un titolo evocativo (senza numerazioni o simboli extra) seguito dal contenuto del pannello.
+    # Il prompt istruisce l'API a suddividere il testo in pannelli. 
+    # Ogni pannello deve iniziare con un titolo evocativo su una riga a parte seguito dal contenuto, senza numerazioni o markdown extra.
     user_message = (
         "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando la storia in maniera "
         "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli, "
-        "dove ogni pannello inizia con un titolo evocativo su una riga a parte, seguito dal contenuto del pannello. "
-        "Non inserire numerazioni, simboli o markdown extra (ad esempio, non includere '**' o 'Pannello 1:'). "
+        "in cui ogni pannello inizia con un titolo evocativo su una riga a parte seguito dal contenuto del pannello. "
+        "Non inserire numerazioni, simboli o markdown extra (non includere '**', ':' o 'Pannello 1:'). "
         "Testo articolo:\n\n" + text
     )
     payload = {
@@ -47,7 +46,6 @@ def transform_text_narrative(api_key, text):
         choices = data.get("choices", [])
         if choices and "message" in choices[0]:
             transformed_text = choices[0]["message"].get("content", "")
-            # Rimuovo eventuali markdown indesiderati
             transformed_text = transformed_text.replace("**", "")
             return transformed_text
         else:
@@ -59,28 +57,23 @@ def transform_text_narrative(api_key, text):
         st.error(e)
         return None
 
-# Funzione per estrarre titolo ed eventuale parola evocativa dal pannello
+# Funzione per parsare un pannello in titolo e contenuto 
 def parse_panel(panel_text):
-    # Rimuovo spazi e eventuali markdown indesiderati
     panel_text = panel_text.strip().replace("**", "")
     title = ""
     content = panel_text
-    # Se esiste una rottura di riga, prendo la prima linea come titolo
     if "\n" in panel_text:
         parts = panel_text.split("\n", 1)
         title_candidate = parts[0].strip()
-        # Se il titolo candidate è breve e non finisce con un segno di punteggiatura
         if title_candidate and len(title_candidate.split()) < 10:
             title = title_candidate
             content = parts[1].strip()
-    # Se non abbiamo trovato titolo, cerco un separatore ":"
     if not title and ":" in panel_text:
         parts = panel_text.split(":", 1)
         title_candidate = parts[0].strip()
         if title_candidate and len(title_candidate.split()) < 10:
             title = title_candidate
             content = parts[1].strip()
-    # Se ancora non c'è titolo, uso le prime 5 parole come titolo
     if not title:
         words = panel_text.split()
         if len(words) >= 5:
@@ -89,23 +82,26 @@ def parse_panel(panel_text):
         else:
             title = panel_text
             content = ""
-    # Per la parola evocativa, prendo la prima parola del contenuto se disponibile
-    bubble_word = ""
-    content_words = content.split()
-    if content_words:
-        bubble_word = content_words[0].strip(".,;:!?'\"")
-    else:
-        bubble_word = title.split()[0].strip(".,;:!?'\"")
-    return title, content, bubble_word
+    return title, content
 
-# CSS fornito dall'utente per lo stile fumetto
+# Lista di icone disponibili, con nuove aggiunte
+available_icons = [
+    "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
+    "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
+]
+
+# Lista di frasi evocative da utilizzare nel balloon, per variare il messaggio
+bubble_phrases = [
+    "Interessante!", "Incredibile!", "Wow!", "Emozionante!", "Avvincente!",
+    "Sorprendente!", "Stupefacente!", "Motivante!", "Fresco!", "Dinamico!"
+]
+
+# CSS fornito dall'utente, con modifiche per il posizionamento della speech bubble e nuove icone
 comic_css = """
 /* comic-style.css */
-
-/* Aggiungi uno stile base per il body quando il fumetto è visibile */
 body:has(.comic-container) {
     font-family: 'Comic Neue', cursive;
-    background: linear-gradient(135deg, #f0f0f0, #e0f0f0); /* Sfondo chiaro per il fumetto */
+    background: linear-gradient(135deg, #f0f0f0, #e0f0f0);
     margin: 0;
     padding: 20px;
     color: #333;
@@ -169,6 +165,7 @@ body:has(.comic-container) {
     z-index: 6;
 }
 
+/* La speech bubble ora viene posizionata in basso a destra per evitare sovrapposizioni */
 .speech-bubble {
     position: absolute;
     background-color: #fff;
@@ -181,41 +178,30 @@ body:has(.comic-container) {
     filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.2));
     animation: bounce 0.5s ease-in-out alternate infinite;
     z-index: 5;
-    top: 70px;
+    bottom: 10px;
     right: 20px;
-    left: auto;
-    bottom: auto;
 }
 
 .speech-bubble::after {
     content: '';
     position: absolute;
-    top: 10px;
-    left: -15px;
-    right: auto;
-    bottom: auto;
+    bottom: 100%;
+    right: 10px;
     width: 0;
     height: 0;
-    border-top: 15px solid transparent;
-    border-bottom: 15px solid transparent;
-    border-right: 15px solid #fff;
-    border-left: none;
-    filter: drop-shadow(-1px 1px 2px rgba(0,0,0,0.1));
+    border-bottom: 15px solid #fff;
+    border-left: 15px solid transparent;
 }
 
 .speech-bubble::before {
     content: '';
     position: absolute;
-    top: 8px;
-    left: -18px;
-    right: auto;
-    bottom: auto;
+    bottom: 100%;
+    right: 8px;
     width: 0;
     height: 0;
-    border-top: 17px solid transparent;
-    border-bottom: 17px solid transparent;
-    border-right: 17px solid #333;
-    border-left: none;
+    border-bottom: 17px solid #333;
+    border-left: 17px solid transparent;
     z-index: -1;
 }
 
@@ -233,7 +219,7 @@ body:has(.comic-container) {
 /* --- Visuals/Icons in Panels --- */
 .icon {
     display: block;
-    margin: 10px auto;
+    margin: 10px auto 0 auto;
     font-size: 3em;
     text-align: center;
     position: relative;
@@ -253,6 +239,11 @@ body:has(.comic-container) {
 .icon-ai::before { content: '🤖'; }
 .icon-code::before { content: '💻'; }
 .icon-cloud::before { content: '☁️'; }
+.icon-fire::before { content: '🔥'; }
+.icon-lightbulb::before { content: '💡'; }
+.icon-music::before { content: '🎵'; }
+.icon-book::before { content: '📚'; }
+.icon-rocket::before { content: '🚀'; }
 
 .highlight {
     font-weight: bold;
@@ -271,22 +262,15 @@ body:has(.comic-container) {
     100% { transform: translateY(-5px); }
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .panel {
         width: 100%;
         min-width: auto;
     }
     .speech-bubble {
-         top: 60px;
+         bottom: 10px;
          right: 10px;
          max-width: 60%;
-    }
-    .speech-bubble::after, .speech-bubble::before {
-         top: 8px;
-    }
-    .speech-bubble::before {
-         top: 6px;
     }
     .icon {
          font-size: 2em;
@@ -303,15 +287,9 @@ body:has(.comic-container) {
     .speech-bubble {
          font-size: 0.9em;
          padding: 6px 10px;
-         top: 50px;
+         bottom: 10px;
          right: 5px;
          max-width: 75%;
-    }
-    .speech-bubble::after, .speech-bubble::before {
-         top: 6px;
-    }
-    .speech-bubble::before {
-         top: 4px;
     }
     .icon {
          font-size: 2em;
@@ -337,7 +315,6 @@ body:has(.comic-container) {
     }
 }
 
-/* Stile per il body quando la pagina originale è nascosta */
 body[style*="display: none"] {
     display: none !important;
 }
@@ -345,7 +322,6 @@ body[style*="display: none"] {
 
 st.title("Comic App: Trasforma l'Articolo in un Fumetto Narrativo")
 
-# Recupera la chiave API dai secrets o la richiede in input
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
     groq_api_key = st.text_input("Inserisci la tua chiave API per Groq:", type="password")
@@ -364,23 +340,26 @@ if st.button("Processa"):
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Suddivide il testo trasformato in pannelli basandosi su doppie interruzioni di linea
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
-                # Se la suddivisione non produce abbastanza pannelli, suddivide per singole linee
                 if len(panels) < 5:
                     panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
                 
                 panels_html = ""
-                # Per ogni pannello, estraggo il titolo, il contenuto e una parola evocativa
-                for panel in panels:
-                    titolo, contenuto, bubble_word = parse_panel(panel)
+                for idx, panel in enumerate(panels):
+                    titolo, contenuto = parse_panel(panel)
+                    # Se il titolo non sembra conforme al contenuto dell'articolo, usalo
+                    # così com'è (non aggiungere numerazioni o extra)
+                    # Scegli un'icona in base all'indice
+                    icon_class = available_icons[idx % len(available_icons)]
+                    # Scegli una frase evocativa in base all'indice (evitando di usare la prima parola del contenuto)
+                    bubble_phrase = bubble_phrases[idx % len(bubble_phrases)]
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
-                            <div class="icon icon-star"></div>
+                            <div class="icon {icon_class}"></div>
                             <h2 class="comic-header">{titolo}</h2>
                             <p>{contenuto}</p>
-                            <div class="speech-bubble">{bubble_word}</div>
+                            <div class="speech-bubble">{bubble_phrase}</div>
                         </div>
                     </div>
                     """
