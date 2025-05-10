@@ -23,12 +23,14 @@ def transform_text_narrative(api_key, text):
         "Content-Type": "application/json", 
         "Authorization": f"Bearer {api_key}"
     }
-    # Messaggio per trasformare il testo in uno stile fumettistico narrativo, informativo, senza dialoghi o numerazioni
+    # Messaggio per trasformare il testo in uno stile fumettistico narrativo, informativo e coinvolgente.
+    # Il testo trasformato deve essere suddiviso in pannelli in cui ciascun pannello contiene in prima linea
+    # un titolo evocativo (senza numerazioni o simboli extra) seguito dal contenuto del pannello.
     user_message = (
         "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando la storia in maniera "
         "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli, "
-        "assegnando a ciascuno un titolo evocativo senza inserire numerazioni o simboli extra (ad esempio, non includere 'Pannello 1:' o '**'). "
-        "Non utilizzare dialoghi tra personaggi, ma mantieni uno stile narrativo coerente. "
+        "dove ogni pannello inizia con un titolo evocativo su una riga a parte, seguito dal contenuto del pannello. "
+        "Non inserire numerazioni, simboli o markdown extra (ad esempio, non includere '**' o 'Pannello 1:'). "
         "Testo articolo:\n\n" + text
     )
     payload = {
@@ -45,6 +47,8 @@ def transform_text_narrative(api_key, text):
         choices = data.get("choices", [])
         if choices and "message" in choices[0]:
             transformed_text = choices[0]["message"].get("content", "")
+            # Rimuovo eventuali markdown indesiderati
+            transformed_text = transformed_text.replace("**", "")
             return transformed_text
         else:
             return None
@@ -54,6 +58,45 @@ def transform_text_narrative(api_key, text):
             st.error("Dettagli errore API: " + e.response.text)
         st.error(e)
         return None
+
+# Funzione per estrarre titolo ed eventuale parola evocativa dal pannello
+def parse_panel(panel_text):
+    # Rimuovo spazi e eventuali markdown indesiderati
+    panel_text = panel_text.strip().replace("**", "")
+    title = ""
+    content = panel_text
+    # Se esiste una rottura di riga, prendo la prima linea come titolo
+    if "\n" in panel_text:
+        parts = panel_text.split("\n", 1)
+        title_candidate = parts[0].strip()
+        # Se il titolo candidate è breve e non finisce con un segno di punteggiatura
+        if title_candidate and len(title_candidate.split()) < 10:
+            title = title_candidate
+            content = parts[1].strip()
+    # Se non abbiamo trovato titolo, cerco un separatore ":"
+    if not title and ":" in panel_text:
+        parts = panel_text.split(":", 1)
+        title_candidate = parts[0].strip()
+        if title_candidate and len(title_candidate.split()) < 10:
+            title = title_candidate
+            content = parts[1].strip()
+    # Se ancora non c'è titolo, uso le prime 5 parole come titolo
+    if not title:
+        words = panel_text.split()
+        if len(words) >= 5:
+            title = " ".join(words[:5])
+            content = " ".join(words[5:])
+        else:
+            title = panel_text
+            content = ""
+    # Per la parola evocativa, prendo la prima parola del contenuto se disponibile
+    bubble_word = ""
+    content_words = content.split()
+    if content_words:
+        bubble_word = content_words[0].strip(".,;:!?'\"")
+    else:
+        bubble_word = title.split()[0].strip(".,;:!?'\"")
+    return title, content, bubble_word
 
 # CSS fornito dall'utente per lo stile fumetto
 comic_css = """
@@ -327,22 +370,17 @@ if st.button("Processa"):
                 if len(panels) < 5:
                     panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
                 
-                # Predefiniamo liste di titoli evocativi e icone da applicare ciclicamente a ciascun pannello
-                titoli_sezioni = ["Inizio Avventuroso", "La Scoperta", "Il Cuore della Storia", "Momento Chiave", "Epilogo"]
-                icone_classi = ["icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star"]
-                
                 panels_html = ""
-                for idx, panel_content in enumerate(panels):
-                    titolo = titoli_sezioni[idx % len(titoli_sezioni)]
-                    icona = icone_classi[idx % len(icone_classi)]
-                    # Non viene aggiunto alcun numero o testo extra, solo il titolo evocativo e il contenuto
+                # Per ogni pannello, estraggo il titolo, il contenuto e una parola evocativa
+                for panel in panels:
+                    titolo, contenuto, bubble_word = parse_panel(panel)
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
-                            <div class="icon {icona}"></div>
+                            <div class="icon icon-star"></div>
                             <h2 class="comic-header">{titolo}</h2>
-                            <p>{panel_content}</p>
-                            <div class="speech-bubble">💬</div>
+                            <p>{contenuto}</p>
+                            <div class="speech-bubble">{bubble_word}</div>
                         </div>
                     </div>
                     """
