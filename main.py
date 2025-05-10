@@ -16,20 +16,19 @@ def get_article_content(url):
         st.error(e)
         return None
 
-# Funzione per trasformare il testo in un formato fumettistico per i giovani
-def transform_text_groq(text, api_key):
+# Funzione per trasformare il testo in un fumetto narrativo in stile articolo informativo
+def transform_text_narrative(api_key, text):
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Content-Type": "application/json", 
         "Authorization": f"Bearer {api_key}"
     }
-    # Messaggio per riformulare il testo come un fumetto rivolto ai giovani.
-    # Il messaggio richiede di suddividere il contenuto in numerosi pannelli, utilizzando dialoghi ed un linguaggio fresco.
+    # Messaggio per trasformare il testo in uno stile fumettistico narrativo, informativo, senza dialoghi o numerazioni
     user_message = (
-        "Trasforma il seguente articolo in un fumetto rivolto ai giovani. "
-        "Riformula il testo in stile dialogico e suddividilo in numerosi pannelli, "
-        "dove ogni pannello rappresenta una scena breve con un titolo d'effetto. "
-        "Utilizza anche emoji e icone appropriate per ogni sezione. "
+        "Riscrivi il seguente articolo in formato fumettistico come se un narratore stesse raccontando la storia in maniera "
+        "informativa e coinvolgente, destinata a un pubblico giovane. Suddividi il testo in numerosi pannelli, "
+        "assegnando a ciascuno un titolo evocativo senza inserire numerazioni o simboli extra (ad esempio, non includere 'Pannello 1:' o '**'). "
+        "Non utilizzare dialoghi tra personaggi, ma mantieni uno stile narrativo coerente. "
         "Testo articolo:\n\n" + text
     )
     payload = {
@@ -38,13 +37,11 @@ def transform_text_groq(text, api_key):
             {"role": "user", "content": user_message}
         ]
     }
-    
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=40)
         response.raise_for_status()
         data = response.json()
-        st.write("Risposta API Groq (debug):", data)  # Debug, opzionale
-        
+        st.write("Risposta API Groq (debug):", data)
         choices = data.get("choices", [])
         if choices and "message" in choices[0]:
             transformed_text = choices[0]["message"].get("content", "")
@@ -303,9 +300,9 @@ body[style*="display: none"] {
 }
 """
 
-st.title("Comic App: Trasforma l'Articolo in un Fumetto")
+st.title("Comic App: Trasforma l'Articolo in un Fumetto Narrativo")
 
-# Recupera la chiave API dai secrets o la chiede in input
+# Recupera la chiave API dai secrets o la richiede in input
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
     groq_api_key = st.text_input("Inserisci la tua chiave API per Groq:", type="password")
@@ -321,25 +318,24 @@ if st.button("Processa"):
         with st.spinner("Estrazione dell'articolo in corso..."):
             article_text = get_article_content(link)
         if article_text is not None:
-            with st.spinner("Trasformazione del testo in un fumetto..."):
-                comic_text = transform_text_groq(article_text, groq_api_key)
+            with st.spinner("Trasformazione del testo in fumetto narrativo..."):
+                comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Il testo trasformato viene suddiviso in pannelli basandosi su doppie interruzioni di linea 
-                # (ipotizzando che l'API restituisca una divisione in più scene)
+                # Suddivide il testo trasformato in pannelli basandosi su doppie interruzioni di linea
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
-                
-                # Se il numero dei pannelli è basso, possiamo anche suddividere per riga per avere più sezioni
+                # Se la suddivisione non produce abbastanza pannelli, suddivide per singole linee
                 if len(panels) < 5:
                     panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
                 
-                # Predefiniamo liste di titoli d'effetto e classi icona che si ripetono ciculramente
-                titoli_sezioni = ["Inizio Avventuroso", "La Sfida", "Colpo di Scena", "Risata e Emozioni", "Finale Epico"]
+                # Predefiniamo liste di titoli evocativi e icone da applicare ciclicamente a ciascun pannello
+                titoli_sezioni = ["Inizio Avventuroso", "La Scoperta", "Il Cuore della Storia", "Momento Chiave", "Epilogo"]
                 icone_classi = ["icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star"]
                 
                 panels_html = ""
                 for idx, panel_content in enumerate(panels):
                     titolo = titoli_sezioni[idx % len(titoli_sezioni)]
                     icona = icone_classi[idx % len(icone_classi)]
+                    # Non viene aggiunto alcun numero o testo extra, solo il titolo evocativo e il contenuto
                     panels_html += f"""
                     <div class="panel visible">
                         <div class="panel-content">
@@ -356,7 +352,7 @@ if st.button("Processa"):
                 <html>
                 <head>
                   <meta charset="utf-8">
-                  <title>Articolo a Fumetti</title>
+                  <title>Articolo a Fumetti Narrativo</title>
                   <style>
                   {comic_css}
                   </style>
@@ -370,4 +366,4 @@ if st.button("Processa"):
                 """
                 components.html(full_html, height=900, scrolling=True)
             else:
-                st.error("Impossibile trasformare il testo in un fumetto.")
+                st.error("Impossibile trasformare il testo in un fumetto narrativo.")
