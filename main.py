@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Any
 
 # --- Costanti ---
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL_NAME = "llama-3.1-70b-versatile" # Puoi provare anche "llama3-70b-8192" o "mixtral-8x7b-32768"
+GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 REQUEST_TIMEOUT = 90  # Aumentato a 90 secondi per query più lunghe
 
 DEFAULT_PANEL_TITLES = [
