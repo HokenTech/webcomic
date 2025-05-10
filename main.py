@@ -13,12 +13,6 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 REQUEST_TIMEOUT = 90  # Durata massima in secondi per completare una richiesta API
 
-# Titoli di fallback in caso di assenza di titolo estratto dal pannello
-DEFAULT_PANEL_TITLES = [
-    "Fatto Interessante", "Curiosità Imparabile", "Dato Inedito",
-    "Focus Importante", "Un Fattore da Notare", "Riflessione Finale"
-]
-
 # Icone disponibili per assegnare casualmente ai pannelli del fumetto
 AVAILABLE_ICONS = [
     "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
@@ -141,8 +135,8 @@ body:has(.comic-container) {
 # --- FUNZIONI DI SUPPORTO ---
 def get_article_content(url: str) -> Optional[str]:
     """
-    Esegue il download e l'analisi di un articolo da un URL fornito.
-    Restituisce il testo principale dell'articolo o None in caso di errore.
+    Scarica e analizza il contenuto di un articolo dall'URL specificato.
+    Il testo principale viene restituito qualora presente, altrimenti viene restituito None.
     """
     try:
         article = Article(url)
@@ -153,26 +147,27 @@ def get_article_content(url: str) -> Optional[str]:
             return None
         return article.text
     except Exception as e:
-        st.error(f"Si è verificato un errore durante l'estrazione dell'articolo da {url}.")
+        st.error(f"Errore durante l'estrazione dell'articolo da {url}.")
         st.error(f"Dettagli tecnici: {e}")
         return None
 
 def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
     """
-    Interroga l'API Groq per trasformare il testo dell'articolo in un formato fumettistico narrativo.
-    Il prompt invia istruzioni per un linguaggio semplice, accattivante, e suddiviso in pannelli tramite doppie interruzioni di riga.
-    La risposta dell'API viene pulita da eventuali formattazioni indesiderate e ritorna il testo trasformato.
+    Esegue la trasformazione del testo dell'articolo in uno stile fumettistico narrativo tramite l'API Groq.
+    Il prompt viene formulato specificando esplicitamente l'elaborazione di titoli per ogni paragrafo,
+    evitando l'inserimento esplicito della sequenza '\\n\\n' nell'output finale.
+    La risposta dell'API viene sanificata per rimuovere formattazioni indesiderate e sequenze inutili.
     """
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
     prompt = (
-        "Sei un narratore di fumetti con grande abilità. Riscrivi il seguente articolo in uno stile fumettistico, "
-        "semplice, accattivante e informativo, come se venisse raccontato a bambini o ragazzi. "
-        "Utilizza un linguaggio vivace e diretto, e separa il testo in brevi pannelli (paragrafi) usando una doppia interruzione di riga (\\n\\n). "
-        "Ogni pannello deve concentrarsi su un'idea o evento chiave. "
-        "NON includere placeholder, descrizioni di immagini (ad esempio, '[Immagine di...]') o commenti sul ruolo del narratore. "
+        "Si prega di riscrivere il seguente articolo in uno stile fumettistico narrativo, "
+        "utilizzando un linguaggio semplice, accattivante e informativo. "
+        "Per ogni paragrafo, elaborare un titolo esplicito e indicarlo chiaramente. "
+        "Il testo prodotto non DEVE contenere la sequenza '\\n\\n' esplicitamente, "
+        "ma deve essere suddiviso in pannelli distinti in base a concetti e idee. "
         "Di seguito, il testo dell'articolo:\n\n" + text
     )
     payload = {
@@ -185,16 +180,17 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
         response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         data = response.json()
-        # Visualizzazione dei dati di debug relativi alla risposta API, inclusi i parametri utilizzati e il contenuto restituito
         st.write("Risposta API Groq (debug):", data)
         choices = data.get("choices")
         if choices and isinstance(choices, list) and len(choices) > 0:
             message = choices[0].get("message")
             if message and isinstance(message, dict):
                 transformed_text = message.get("content", "")
+                # Rimozione di formattazioni indesiderate e sequenze '\\n\\n'
                 transformed_text = transformed_text.replace("**", "")
-                transformed_text = re.sub(r"$[^$]*$", "", transformed_text)  # Rimozione di eventuali placeholder racchiusi in parentesi quadre
-                transformed_text = re.sub(r"\*([^*]+)\*", r"\1", transformed_text)  # Rimozione di eventuali formattazioni in corsivo
+                transformed_text = re.sub(r"$[^$]*$", "", transformed_text)
+                transformed_text = re.sub(r"\*([^*]+)\*", r"\1", transformed_text)
+                transformed_text = transformed_text.replace("\\n\\n", " ")
                 return transformed_text.strip()
         st.warning("La risposta dell'API Groq non è conforme alle aspettative o risulta vuota.")
         st.json(data)
@@ -221,7 +217,7 @@ def transform_text_narrative(api_key: str, text: str) -> Optional[str]:
 
 def generate_panel_html(title: str, content: str, icon_class: str) -> str:
     """
-    Genera il codice HTML per un pannello del fumetto utilizzando il titolo, il contenuto e un'icona.
+    Genera il codice HTML per un pannello del fumetto, comprensivo di titolo, contenuto e un'icona.
     """
     return f"""
     <div class="panel visible">
@@ -235,14 +231,14 @@ def generate_panel_html(title: str, content: str, icon_class: str) -> str:
 
 def display_comic_output(comic_text: str):
     """
-    Analizza il testo trasformato in pannelli, eliminando quelli che risultano essere vuoti o contenenti solo spazi o caratteri di nuova riga.
-    Genera il codice HTML completo per mostrare il fumetto nell'interfaccia utente.
+    Divide il testo trasformato nei singoli pannelli, eliminando eventuali pannelli vuoti o composti unicamente da spazi e interruzioni.
+    Viene quindi generato il codice HTML completo per visualizzare il fumetto nell'interfaccia utente.
     """
-    # Suddivisione del testo in pannelli basata su doppie interruzioni di riga, rimuovendo eventuali pannelli composti solo da spazi o caratteri di nuova riga
+    # Suddivide il testo basandosi sulla presenza di doppie interruzioni di riga, eliminando pannelli inutili
     raw_panels = re.split(r'\n\s*\n', comic_text)
     panels_data = []
     for panel in raw_panels:
-        if re.sub(r'[\n\s]', '', panel):  # Verifica che il pannello contenga caratteri significativi
+        if re.sub(r'[\n\s]', '', panel):
             panels_data.append(panel.strip())
     if not panels_data:
         st.warning("Il testo trasformato non contiene pannelli validi. Verrà mostrato il testo grezzo.")
@@ -250,7 +246,7 @@ def display_comic_output(comic_text: str):
     panels_html_list = []
     for idx, panel_text in enumerate(panels_data):
         lines = panel_text.split("\n", 1)
-        # Verifica della presenza di un titolo separato dal contenuto in base alla lunghezza e alla punteggiatura
+        # Verifica se il testo contiene un titolo separato in base a criteri di lunghezza e punteggiatura
         if len(lines) > 1:
             potential_title = lines[0].strip()
             content_candidate = lines[1].strip()
@@ -258,10 +254,10 @@ def display_comic_output(comic_text: str):
                 title = potential_title
                 content = content_candidate
             else:
-                title = random.choice(DEFAULT_PANEL_TITLES)
+                title = "Titolo Non Specificato"
                 content = panel_text
         else:
-            title = random.choice(DEFAULT_PANEL_TITLES)
+            title = "Titolo Non Specificato"
             content = panel_text
         if not content.strip():
             continue
@@ -302,15 +298,13 @@ def display_comic_output(comic_text: str):
     components.html(full_html, height=1500, scrolling=True)
 
 # --- INTERFACCIA UTENTE STREAMLIT ---
-# Configurazione della pagina con titolo, layout e stato iniziale della sidebar
 st.set_page_config(page_title="Articolo a Fumetti", layout="wide", initial_sidebar_state="collapsed")
 st.title("🎨 Articolo a Fumetti ⚡")
 st.markdown("""
 Trasforma un articolo di notizie in un fumetto narrativo, semplice e divertente!
-Incollare il link dell'articolo e lasciare che l'intelligenza artificiale faccia il resto.
+Incollare il link dell'articolo per avviare la trasformazione e ottenere titoli elaborati per ciascun pannello.
 """)
 
-# Gestione della chiave API per Groq attraverso lo stato della sessione
 if 'GROQ_API_KEY' not in st.session_state:
     st.session_state.GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 if not st.session_state.GROQ_API_KEY:
@@ -341,7 +335,7 @@ if st.button("Trasforma in Fumetto!", type="primary", use_container_width=True, 
             article_text = get_article_content(article_url)
         if article_text:
             st.info(f"Articolo estratto ({len(article_text)} caratteri). Inizio trasformazione in formato fumettistico.")
-            with st.spinner("Esecuzione della trasformazione con l'AI di Groq... 🗯️ (potrebbero essere necessari alcuni istanti)"):
+            with st.spinner("Esecuzione della trasformazione con l'AI di Groq... 🗯️ (potrebbero volerci alcuni istanti)"):
                 comic_text_output = transform_text_narrative(st.session_state.GROQ_API_KEY, article_text)
             if comic_text_output:
                 st.success("Trasformazione completata. Ecco il fumetto generato!")
