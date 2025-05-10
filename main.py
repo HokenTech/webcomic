@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import streamlit as st
 import streamlit.components.v1 as components
@@ -17,8 +18,7 @@ def get_article_content(url):
         st.error(e)
         return None
 
-# Funzione per trasformare il testo in un fumetto narrativo informativo,
-# con lo stile di riscrittura aggiornato per mantenere intatta la struttura dei paragrafi.
+# Funzione per trasformare il testo in un fumetto narrativo informativo e semplice
 def transform_text_narrative(api_key, text):
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -26,10 +26,10 @@ def transform_text_narrative(api_key, text):
         "Authorization": f"Bearer {api_key}"
     }
     prompt = (
-        "Riscrivi il seguente articolo in formato fumettistico, come se un narratore stesse raccontando la storia in maniera "
-        "informativa e coinvolgente, mantenendo la struttura originaria dei paragrafi. L'obiettivo è presentare il testo "
-        "in maniera coerente, senza ridurlo, e rendendolo attraente per un pubblico giovane. Non inserire titoli all'inizio "
-        "dei pannelli, perché verranno assegnati in seguito univocamente. Utilizza un tono narrativo che informi e intrattenga. "
+        "Riscrivi il seguente articolo in uno stile fumettistico, semplice ed informativo, adatto a un pubblico giovane. "
+        "Il risultato deve essere chiaro, coerente e contenere tutte le informazioni rilevanti dell'articolo. "
+        "NON includere placeholder, descrizioni inutili o riferimenti a immagini (ad esempio, non inserire testi come "
+        "'[Immagine di ...]'). Mantieni la struttura dei paragrafi originale, separando il testo in blocchi se necessario. "
         "Testo articolo:\n\n" + text
     )
     payload = {
@@ -47,7 +47,9 @@ def transform_text_narrative(api_key, text):
         if choices and "message" in choices[0]:
             transformed_text = choices[0]["message"].get("content", "")
             transformed_text = transformed_text.replace("**", "")
-            return transformed_text
+            # Rimuove eventuali contenuti indesiderati racchiusi tra parentesi quadre
+            transformed_text = re.sub(r"$[^$]*$", "", transformed_text)
+            return transformed_text.strip()
         else:
             return None
     except Exception as e:
@@ -64,13 +66,13 @@ default_titles = [
     "Momento Rivelatore", "Epilogo Indimenticabile"
 ]
 
-# Lista di icone disponibili, per una maggiore varietà ad ogni pannello
+# Lista di icone per aggiungere varietà visiva
 available_icons = [
     "icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star",
     "icon-fire", "icon-lightbulb", "icon-music", "icon-book", "icon-rocket"
 ]
 
-# CSS per lo stile fumettistico, che preserva la struttura dei paragrafi originali
+# CSS per lo stile fumettistico, mantenendo la struttura dei paragrafi originali
 comic_css = """
 /* comic-style.css */
 body:has(.comic-container) {
@@ -81,7 +83,6 @@ body:has(.comic-container) {
     color: #333;
     overflow-x: hidden;
 }
-
 .comic-container {
     display: flex;
     flex-wrap: wrap;
@@ -95,7 +96,6 @@ body:has(.comic-container) {
     border-radius: 15px;
     box-sizing: border-box;
 }
-
 .panel {
     background-color: #fff;
     border: 5px solid #333;
@@ -110,14 +110,11 @@ body:has(.comic-container) {
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.8s ease-out, transform 0.8s ease-out;
-    z-index: 0;
 }
-
 .panel.visible {
     opacity: 1;
     transform: translateY(0);
 }
-
 .panel h2 {
     font-family: 'Bangers', cursive;
     color: #e53935;
@@ -126,42 +123,25 @@ body:has(.comic-container) {
     text-shadow: 2px 2px #333;
     font-size: 2em;
     line-height: 1.1;
-    position: relative;
-    z-index: 1;
     margin-bottom: 10px;
 }
-
 .panel p {
     margin-top: 10px;
-    margin-bottom: 0;
     line-height: 1.5;
-    position: relative;
-    z-index: 1;
     text-align: justify;
     white-space: pre-wrap;
 }
-
 .panel-content {
-    position: relative;
-    z-index: 1;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
     align-items: center;
     padding: 0 10px;
 }
-
-/* --- Visuals/Icons in Panels --- */
 .icon {
-    display: block;
-    margin: 10px auto 0 auto;
     font-size: 3em;
+    margin: 10px auto;
     text-align: center;
-    position: relative;
-    z-index: 2;
-    flex-shrink: 0;
 }
-
 .icon-trophy::before { content: '🏆'; }
 .icon-globe::before { content: '🌍'; }
 .icon-map::before { content: '📍'; }
@@ -179,46 +159,15 @@ body:has(.comic-container) {
 .icon-music::before { content: '🎵'; }
 .icon-book::before { content: '📚'; }
 .icon-rocket::before { content: '🚀'; }
-
-.highlight {
-    font-weight: bold;
-    color: #1a73e8;
-    font-family: 'Bangers', cursive;
-}
-
-.highlight-red {
-    font-weight: bold;
-    color: #e53935;
-    font-family: 'Bangers', cursive;
-}
-
 @media (max-width: 768px) {
-    .panel {
-        width: 100%;
-        min-width: auto;
-    }
-    .icon {
-         font-size: 2em;
-    }
-    body:has(.comic-container) {
-         padding: 10px;
-    }
+    .panel { width: 100%; }
+    .icon { font-size: 2em; }
+    body { padding: 10px; }
 }
-
 @media (max-width: 480px) {
-     .panel h2 {
-        font-size: 1.5em;
-    }
-    .icon {
-         font-size: 2em;
-    }
-    body:has(.comic-container) {
-         padding: 10px;
-    }
-}
-
-body[style*="display: none"] {
-    display: none !important;
+    .panel h2 { font-size: 1.5em; }
+    .icon { font-size: 2em; }
+    body { padding: 10px; }
 }
 """
 
@@ -227,7 +176,6 @@ st.title("Comic App: Trasforma l'Articolo in un Fumetto Narrativo")
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
 if not groq_api_key:
     groq_api_key = st.text_input("Inserisci la tua chiave API per Groq:", type="password")
-
 link = st.text_input("Inserisci il link dell'articolo:")
 
 if st.button("Processa"):
@@ -242,17 +190,14 @@ if st.button("Processa"):
             with st.spinner("Trasformazione del testo in fumetto narrativo..."):
                 comic_text = transform_text_narrative(groq_api_key, article_text)
             if comic_text:
-                # Suddividiamo il testo trasformato in pannelli mantenendo la struttura dei paragrafi originali
+                # Utilizza interruzioni doppie di linea per mantenere i paragrafi originali
                 panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
                 if not panels:
                     panels = [comic_text]
-                
                 panels_html = ""
                 for idx, panel in enumerate(panels):
-                    # Assegna un titolo univoco dalla lista predefinita
                     title = default_titles[idx % len(default_titles)]
                     content = panel
-                    # Seleziona un'icona casuale per rendere il pannello unico
                     icon_class = random.choice(available_icons)
                     panels_html += f"""
                     <div class="panel visible">
@@ -263,7 +208,6 @@ if st.button("Processa"):
                         </div>
                     </div>
                     """
-                
                 full_html = f"""
                 <!DOCTYPE html>
                 <html>
