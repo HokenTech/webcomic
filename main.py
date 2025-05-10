@@ -16,33 +16,43 @@ def get_article_content(url):
         st.error(e)
         return None
 
-# Funzione per ottenere il sommario utilizzando l'API Chat di Groq
-def summarize_text_groq(text, api_key):
+# Funzione per trasformare il testo in un formato fumettistico per i giovani
+def transform_text_groq(text, api_key):
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json", 
         "Authorization": f"Bearer {api_key}"
     }
-    user_message = "Per favore, riassumi il seguente articolo in poche frasi concise:\n\n" + text
+    # Messaggio per riformulare il testo come un fumetto rivolto ai giovani.
+    # Il messaggio richiede di suddividere il contenuto in numerosi pannelli, utilizzando dialoghi ed un linguaggio fresco.
+    user_message = (
+        "Trasforma il seguente articolo in un fumetto rivolto ai giovani. "
+        "Riformula il testo in stile dialogico e suddividilo in numerosi pannelli, "
+        "dove ogni pannello rappresenta una scena breve con un titolo d'effetto. "
+        "Utilizza anche emoji e icone appropriate per ogni sezione. "
+        "Testo articolo:\n\n" + text
+    )
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "user", "content": user_message}
         ]
     }
+    
     try:
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=40)
         response.raise_for_status()
         data = response.json()
         st.write("Risposta API Groq (debug):", data)  # Debug, opzionale
+        
         choices = data.get("choices", [])
         if choices and "message" in choices[0]:
-            summary = choices[0]["message"].get("content", "Nessun sommario disponibile")
-            return summary
+            transformed_text = choices[0]["message"].get("content", "")
+            return transformed_text
         else:
             return None
     except Exception as e:
-        st.error("Errore durante la chiamata all'API per il sommario.")
+        st.error("Errore durante la trasformazione del testo dall'API Groq.")
         if hasattr(e, 'response') and e.response is not None:
             st.error("Dettagli errore API: " + e.response.text)
         st.error(e)
@@ -100,7 +110,7 @@ body:has(.comic-container) {
 
 .panel h2 {
     font-family: 'Bangers', cursive;
-    color: #e53935; /* Red */
+    color: #e53935;
     text-align: center;
     margin-top: 0;
     text-shadow: 2px 2px #333;
@@ -293,7 +303,7 @@ body[style*="display: none"] {
 }
 """
 
-st.title("Articolo in Stile Fumetto con Groq API")
+st.title("Comic App: Trasforma l'Articolo in un Fumetto")
 
 # Recupera la chiave API dai secrets o la chiede in input
 groq_api_key = st.secrets.get("GROQ_API_KEY", None)
@@ -311,20 +321,23 @@ if st.button("Processa"):
         with st.spinner("Estrazione dell'articolo in corso..."):
             article_text = get_article_content(link)
         if article_text is not None:
-            with st.spinner("Richiamo API Groq per il sommario..."):
-                summary = summarize_text_groq(article_text, groq_api_key)
-            if summary:
-                st.markdown("### Sommario")
-                st.write(summary)
+            with st.spinner("Trasformazione del testo in un fumetto..."):
+                comic_text = transform_text_groq(article_text, groq_api_key)
+            if comic_text:
+                # Il testo trasformato viene suddiviso in pannelli basandosi su doppie interruzioni di linea 
+                # (ipotizzando che l'API restituisca una divisione in più scene)
+                panels = [panel.strip() for panel in comic_text.split("\n\n") if panel.strip()]
                 
-                # Predefinisco una lista di titoli e icone per le sezioni
-                titoli_sezioni = ["Introduzione", "Sviluppo", "Approfondimento", "Conclusione"]
-                icone_classi = ["icon-globe", "icon-ai", "icon-code", "icon-trophy"]
+                # Se il numero dei pannelli è basso, possiamo anche suddividere per riga per avere più sezioni
+                if len(panels) < 5:
+                    panels = [line.strip() for line in comic_text.split("\n") if line.strip()]
+                
+                # Predefiniamo liste di titoli d'effetto e classi icona che si ripetono ciculramente
+                titoli_sezioni = ["Inizio Avventuroso", "La Sfida", "Colpo di Scena", "Risata e Emozioni", "Finale Epico"]
+                icone_classi = ["icon-globe", "icon-ai", "icon-code", "icon-trophy", "icon-star"]
                 
                 panels_html = ""
-                # Divisione dell'articolo in paragrafi non vuoti
-                paragrafi = [p.strip() for p in article_text.split("\n") if p.strip()]
-                for idx, paragrafo in enumerate(paragrafi):
+                for idx, panel_content in enumerate(panels):
                     titolo = titoli_sezioni[idx % len(titoli_sezioni)]
                     icona = icone_classi[idx % len(icone_classi)]
                     panels_html += f"""
@@ -332,7 +345,7 @@ if st.button("Processa"):
                         <div class="panel-content">
                             <div class="icon {icona}"></div>
                             <h2 class="comic-header">{titolo}</h2>
-                            <p>{paragrafo}</p>
+                            <p>{panel_content}</p>
                             <div class="speech-bubble">💬</div>
                         </div>
                     </div>
@@ -343,7 +356,7 @@ if st.button("Processa"):
                 <html>
                 <head>
                   <meta charset="utf-8">
-                  <title>Articolo in Stile Fumetto</title>
+                  <title>Articolo a Fumetti</title>
                   <style>
                   {comic_css}
                   </style>
@@ -355,6 +368,6 @@ if st.button("Processa"):
                 </body>
                 </html>
                 """
-                components.html(full_html, height=800, scrolling=True)
+                components.html(full_html, height=900, scrolling=True)
             else:
-                st.error("Impossibile ottenere il sommario.")
+                st.error("Impossibile trasformare il testo in un fumetto.")
