@@ -1,6 +1,6 @@
-# Streamlit Comic App
+# WebComic
 
-Questo documento descrive in dettaglio come ricreare da zero il progetto Streamlit Comic App, un'applicazione che trasforma articoli di notizie in fumetti narrativi. La guida illustra tutti i passaggi, dalla configurazione dell'ambiente alla distribuzione dell'app, includendo informazioni su dipendenze, configurazioni e flusso dell'applicazione.
+Questo documento descrive in dettaglio come ricreare da zero il progetto WebComic, un'applicazione che trasforma articoli di notizie in fumetti narrativi. La guida illustra tutti i passaggi, dalla configurazione dell'ambiente alla distribuzione dell'app, includendo informazioni su dipendenze, configurazioni e flusso dell'applicazione.
 
 ---
 
@@ -19,7 +19,7 @@ Questo documento descrive in dettaglio come ricreare da zero il progetto Streaml
 
 ## Introduzione
 
-La **Streamlit Comic App** è un'applicazione web sviluppata in Python che sfrutta Streamlit per creare un'interfaccia utente interattiva. L'app trasforma articoli di notizie, recuperati da un URL, in fumetti narrativi. Le tecnologie principali utilizzate sono:
+La **Webcomic** è un'applicazione web sviluppata in Python che sfrutta Streamlit per creare un'interfaccia utente interattiva. L'app trasforma articoli di notizie, recuperati da un URL, in fumetti narrativi. Le tecnologie principali utilizzate sono:
 
 - **Newspaper3k** per il download e l'analisi degli articoli.
 - **API Groq** per trasformare il testo in un formato narrativo suddiviso in pannelli, con titoli elaborati per ogni paragrafo.
@@ -80,7 +80,7 @@ Per utilizzare l'API Groq, è necessario configurare la chiave API. Due opzioni:
 
 Organizzare la repo in questo modo:
 
-    streamlit-comic-app/
+    webcomic/
     ├── app.py           # Codice principale dell'applicazione Streamlit
     ├── README.md        # Guida dettagliata per configurare e utilizzare il progetto
     ├── requirements.txt # Elenco delle dipendenze Python (opzionale)
@@ -147,7 +147,7 @@ Organizzare la repo in questo modo:
 
 ## Conclusioni
 
-Questa guida fornisce una panoramica completa per ricreare e personalizzare la **Streamlit Comic App**. Seguendo i passaggi descritti, chiunque potrà configurare l'ambiente di sviluppo, avviare l'applicazione e sfruttare le funzionalità offerte dall'integrazione di Newspaper3k, l'API Groq e Streamlit. Le sezioni dedicate al debug e alle personalizzazioni consentono di adattare l'applicazione alle proprie esigenze e di estenderne le funzionalità per ulteriori evoluzioni.
+Questa guida fornisce una panoramica completa per ricreare e personalizzare la **WebComic**. Seguendo i passaggi descritti, chiunque potrà configurare l'ambiente di sviluppo, avviare l'applicazione e sfruttare le funzionalità offerte dall'integrazione di Newspaper3k, l'API Groq e Streamlit. Le sezioni dedicate al debug e alle personalizzazioni consentono di adattare l'applicazione alle proprie esigenze e di estenderne le funzionalità per ulteriori evoluzioni.
 
 Buon divertimento con il vostro progetto!
 
